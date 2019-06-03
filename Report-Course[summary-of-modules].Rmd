@@ -1,0 +1,178 @@
+---
+title: "Report: Summarized course evaluation"
+output:
+  word_document: 
+    reference_docx: Style_of_report.docx
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+# The source function calls the R script containing the data ("data.R" needs to be saved in same folder as the RMarkdown report)
+    source("data.R") 
+
+# Packages needed
+  library(knitr)
+  library(pander)
+  library(tidyverse)
+```
+
+
+```{r echo=FALSE}
+# ------------------------------------------------------------------------------------- #
+        # WHICH COURSE or MODULE DO YOU WANT TO EVALUATE ?
+ 
+#         -> insert course code between the " ",
+
+              course = "2019_LSAMPLE"
+
+# ------------------------------------------------------------------------------------- #
+               
+# dataframe on module level (average scores across all participants of that module)
+      selection <- filter(data_courses, course_code == course) 
+      selection_modules <- filter(data_modules, course_code == course)
+```
+<br/><br/>
+
+<center>
+**Title of the course:** `r selection$course_title`  
+**Course code:** `r selection$course_code`  
+**Course ID:** `r selection$courseID`  
+**Duration of the whole course:** `r selection$startdate` until `r selection$enddate` (`r selection$duration` days)   
+**location:** `r selection$location`  
+**lecturer:** `r selection$lecturer_all`  
+**Number of participants:** `r selection$npart`  
+**Average response rate across modules:** `r round(selection$responserate*100)`%  
+</center>
+
+<br/>
+
+## Interpretation of scores
+
+The survey measures the following dimensions: *Relevance of the topic*, *Teaching quality*, *Quality of material*, *Satisfaction with facilities*, *Level of difficulty* and the *Skill development*.  
+  
+Scores are given on a scale from 0-100.
+  
+**Courses should obtain average scores above 80.**    
+
+```{r echo=FALSE, warning=FALSE}
+#scores
+tables <- c("Strongly disagree"= 0, 
+                     "Disagree" = 20,
+                     "Somehow disagree"= 40,
+                     "Somehow agree"= 60,
+                     "Agree" = 80,
+                     "Strongly agree" = 100)
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+<br/><br/>
+<br/><br/>
+<br/><br/>
+
+## Summary  
+
+The following figure shows the average scores across all modules of the course. 
+  
+```{r echo=FALSE, fig.width=8, warning=FALSE}
+  # Summary plot
+      plot <- selection[c('relevance',"TQ_f","TQlect_f","TQmat_f","facil_f","skills")] %>%
+          dplyr::rename(
+                       "Relevance of the topics" = relevance,
+                       "Overall teaching quality" = TQ_f,
+                       "- Teaching quality: Lecturer performance" = TQlect_f,
+                       "- Teaching quality: Course material" = TQmat_f,
+                       "Satisfaction with the facilities" = facil_f,
+                       "Skill development" = skills)  %>%
+          gather(plot) 
+
+            ggplot(plot, aes(x=plot, y=value)) +
+               geom_bar(stat = "identity", fill="#787878")  +
+               coord_flip(ylim = c(0, 100)) +
+               geom_hline(yintercept=80, linetype="dashed") +
+              xlab(NULL) +
+              ylab(NULL) +
+              theme(axis.text.y = element_text(size = 12)) +
+              theme(axis.text.x = element_text(size = 12))
+```
+
+The following table summarises the average scores across all modules in this course and gives a reference score (the average score on this dimension across all courses in the database).  
+  
+```{r echo=FALSE, fig.width=8, warning=FALSE}
+  # Summary table with reference score (across all courses of the same category)
+    Database_averages <- data_categories %>% 
+      filter(course_cat == selection$course_cat) %>%   
+      select(c("relevance","TQ_f","TQlect_f","TQmat_f","facil_f","skills", "lev_difficulty")) 
+    
+    table <- selection[c('relevance',"TQ_f","TQlect_f","TQmat_f","facil_f", "skills","lev_difficulty")] %>%
+      bind_rows(Database_averages) %>%
+      dplyr::rename("Average relevance of the topics" = relevance,
+                     "Overall teaching quality" = TQ_f,
+                     "- Teaching quality: Lecturer performance" = TQlect_f,
+                     "- Teaching quality: Course material" = TQmat_f,
+                     "Satisfaction with the facilities" = facil_f,
+                     "Level of difficulty" = lev_difficulty,
+                     "Perceived skill development" = skills) %>% 
+      mutate_if(is.numeric, round,0) %>%
+      t %>% as.data.frame %>%
+          dplyr::rename("Current course score (0-100)" = V1,
+                        "Database average score (0-100)" = V2) 
+
+  # Print table
+    panderOptions("table.style","simple")
+    panderOptions("table.alignment.default","left")
+    panderOptions("table.split.table",Inf)
+    panderOptions("table.split.cells", 30)
+        pander(table)
+    ```
+
+## Satisfaction with the facilities
+
+```{r echo=FALSE, warning=FALSE}
+#table for satisfaction with the facilities
+tables <- selection[c("Q_ffac1","Q_ffac2","Q_ffac3","Q_ffac4", "facil_f")]
+  tables <- dplyr::rename(tables, 
+        "Item 1" = Q_ffac1,
+        "Item 2" = Q_ffac2,
+        "Item 3" = Q_ffac3,
+        "Item 4" = Q_ffac4,
+        "Average" = facil_f) %>%
+    round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+## List of all modules in this course       
+
+```{r echo=FALSE, fig.width=10}
+# list of all modules of this course
+table <- selection_modules[c("module_code","lecturer",
+                        "skills","lev_difficulty","relevance","TQ_f","TQlect_f","TQmat_f")] %>%
+      dplyr::rename("Module" = module_code,
+                    "Lecturer" = lecturer,
+                    "Relevance of topic" = relevance,
+                    "Difficulty" = lev_difficulty,
+                    "Skill development" = skills,
+                    "Overall teaching quality" = TQ_f,
+                    "- Lecturer performance" = TQlect_f,
+                    "- Quality of teaching material" = TQmat_f ) %>% 
+      mutate_if(is.numeric, round)    
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+  pander(table)
+```

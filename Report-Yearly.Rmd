@@ -1,0 +1,184 @@
+---
+title: "Report: Evaluation of the year"
+output:
+  word_document: 
+    reference_docx: Style_of_report.docx
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# The source function calls the R script containing the data ("data.R" needs to be saved in same folder as the RMarkdown report)
+    source("data.R") 
+
+# Packages needed
+  library(knitr)
+  library(pander)
+  library(tidyverse)
+```
+
+```{r echo=FALSE}
+# ------------------------------------------------------------------------------------#
+        # FOR WHICH YEAR DO YOU WANT TO GET A SUMMARY ?
+#
+#         define the year, just insert the year in " " below
+
+              Year = "2019"
+
+# ------------------------------------------------------------------------------------- #
+            
+  # dataframe with all course data from the selected year
+    selection <- filter(data_years, year == Year)
+```
+<br/><br/>
+
+<center>
+**Sumary Report for: **  `r selection$year`   
+**Total Number of participants: **  `r selection$npart_total`  
+**Average response rate: **  `r round(selection$responserate*100)`%  
+</center>
+
+## Interpretation of scores
+  
+The survey measures the following dimensions: *Relevance of the topic*, *Teaching quality*, *Quality of material*, *Satisfaction with facilities*, *Level of difficulty* and the *Skill development*.  
+  
+Scores are given on a scale from 0-100.
+  
+**Courses should obtain average scores above 80.**    
+
+```{r echo=FALSE, warning=FALSE}
+#scores
+tables <- c("Strongly disagree"= 0, 
+                     "Disagree" = 20,
+                     "Somehow disagree"= 40,
+                     "Somehow agree"= 60,
+                     "Agree" = 80,
+                     "Strongly agree" = 100)
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+
+## Summary for `r selection$year` (Average scores across all face-to-face and e-Learning courses)  
+
+```{r echo=FALSE, warning=FALSE, fig.width=10}
+#Summary plot
+plot <- selection %>%
+    select('relevance',"TQ_f","TQlect_f","TQmat_f","facil_f", "skills","lev_difficulty") %>%
+    dplyr::rename(
+                 "Overall Teaching quality" = TQ_f,
+                 "Lecturer performance" = TQlect_f,
+                 "Course material" = TQmat_f,
+                 "Satisfaction with facilities" = facil_f,
+                 "Relevance" = relevance,
+                 "Level of difficulty" = lev_difficulty,
+                 "Skill development" = skills) %>%
+      mutate_if(is.numeric, round,0) %>%
+        gather(table) %>%
+            dplyr::rename("Dimension" = table,
+                          "Score (0 - 100)" = value) 
+  
+plot <- plot %>%
+  filter(Dimension!="Level of difficulty") %>%
+  dplyr::rename(Score = "Score (0 - 100)") 
+plot$Score <- as.numeric(plot$Score)
+
+    ggplot(plot, aes(x=Dimension, y=Score)) +
+      geom_bar(stat = "identity", fill="#787878")  +
+      coord_flip(ylim = c(0, 100)) +
+      geom_hline(yintercept=80, linetype="dashed") +
+      xlab(NULL) +
+      ylab(NULL) +
+      theme(axis.text.y = element_text(size = 12)) +
+      theme(axis.text.x = element_text(size = 12))
+```
+  
+## Comparison with previous years  
+
+```{r echo=FALSE, warning=FALSE}
+table <- data_years %>%
+    dplyr::select("year",'relevance',"TQ_f","TQlect_f","TQmat_f",
+                  "facil_f", "skills","lev_difficulty")  %>%
+      mutate_if(is.numeric, round,0) %>%
+      t %>% as.data.frame 
+
+columnnames <- c("year","Relevance","Overall Teaching quality","Lecturer performance",
+                 "Course material","Satisfaction with facilities",
+                 "Level of difficulty","Skill development") %>%
+              as.data.frame
+
+table <-  bind_cols(columnnames,table) %>%
+  dplyr::rename("Dimension" = ".") 
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(table)
+```
+
+## Overall teaching quality  
+
+```{r echo=FALSE, warning=FALSE, fig.width=11, fig.height=5}
+# Bubble plot for teaching quality
+plot <- data_courses %>%
+  mutate(TQ = rowMeans(data_courses[,c("TQ_f","TQ_el")], na.rm=TRUE)) %>%
+  mutate_at("course_cat", funs(factor)) %>%
+  mutate_at("npart", funs(as.numeric)) 
+
+ggplot(plot, aes(x=startdate, y=TQ)) +
+        geom_point(aes(size=npart,colour = course_cat)) +
+        scale_size_continuous(range=c(5,14)) +
+        ylim(0,100) +
+        labs(x = 'Startdate of the course', y = 'Teaching quality (0-100)',
+             colour = 'Course category', size='Number of participants') 
+```
+  
+## Perceived skill development  
+
+```{r echo=FALSE, warning=FALSE, fig.width=11, fig.height=5}
+# Bubble plot for perceived skill development
+plot <- data_courses %>%
+  mutate_at("course_cat", funs(factor)) %>%
+  mutate_at("npart", funs(as.numeric)) 
+
+ggplot(plot, aes(x=startdate, y=skills)) +
+        geom_point(aes(size=npart,colour = course_cat)) +
+        scale_size_continuous(range=c(5,14)) +
+        ylim(0,100) +
+        labs(x = 'Startdate of the course', y = 'Perceived skill development (0-100)',
+             colour = 'Course category', size='Number of participants') 
+```
+
+## List of all courses    
+
+```{r echo=FALSE, warning=FALSE, fig.width=10}
+# list of all courses
+table <- data_courses[c("course_code","startdate", "courseID", "npart","course_cat","year",
+                        "location","lecturer_all","TQ_f",
+                        "skills","lev_difficulty","relevance","facil_f")] %>%
+  filter(year == Year) %>%
+    select(-year) %>%
+        dplyr::rename("Course" = course_code,
+                      "Startdate" = startdate,
+                      "course ID" = courseID,
+                      "course category" = course_cat,
+                      "number participants" = npart,
+                      "location" = location,
+                      "lecturer" = lecturer_all,
+                      "Skill development" = skills,
+                      "difficulty" = lev_difficulty,
+                      "Relevance of topic" = relevance,
+                      "Teaching quality" = TQ_f,
+                      "satisfaction facilities" = facil_f) %>% 
+        mutate_if(is.numeric, round,1)    
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+  pander(table)
+```

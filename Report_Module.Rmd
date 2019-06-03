@@ -1,0 +1,384 @@
+---
+title: "Report: Module evaluation"
+output:
+  word_document: 
+    reference_docx: Style_of_report.docx
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# The source function calls the R script containing the data ("data.R" needs to be saved in same folder as the RMarkdown report)
+    source("data.R") 
+
+# Packages needed
+  library(knitr)
+  library(pander)
+  library(tidyverse)
+```
+
+```{r echo=FALSE}
+# ------------------------------------------------------------------------------------- #
+        # WHICH COURSE or MODULE DO YOU WANT TO EVALUATE ?
+ 
+#       -> define the course and module, 
+#           course: insert the course code between the " ",
+#           module: insert the module code between the " ",
+#                   if the course has NO MODULES (e.g. short term courses), insert "No"
+
+              course = "2019_LSAMPLE"
+              module = "A1" 
+
+# ------------------------------------------------------------------------------------- #
+              
+ # creates a dataframe with evaluation data for the selected module (or course)             
+    if (module == "No" | module == "no") {
+        selection <- filter(data_courses, course_code == course)
+          sel_part <- filter(data, course_code == course)} else {
+        selection <- filter(data_modules, course_module == (str_c(course, module, sep="_")))
+          sel_part <- filter(data, course_module == (str_c(course, module, sep="_")))} 
+
+      # fixes errors with strings in open answers
+        sel_part <- mutate_at(sel_part, 
+            vars(starts_with("OA")), str_replace_all, "\\r|\\n|\\#|\\_|\\*|\\**|\\##", "")
+        sel_part <- mutate_at(sel_part, 
+            vars(starts_with("OA")), str_replace_all, "\\-", ".")
+```
+<br/><br/>
+
+<center>
+**Title of the module:** `r selection$module_title`  
+**Module code:** `r selection$course_module`  
+**Course ID:** `r selection$courseID`  
+**Duration of the whole course:** `r selection$startdate` until `r selection$enddate` (`r selection$duration` days)   
+**location:** `r selection$location`  
+**lecturer:** `r selection$lecturer`  
+**Number of participants:** `r selection$npart`  
+**Response rate:** `r round(selection$responserate*100)`%  
+</center>
+
+## Interpretation of scores
+
+The survey measures the following dimensions: *Relevance of the topic*, *Teaching quality*, *Quality of material*, *Satisfaction with facilities*, *Level of difficulty* and the *Skill development*.  
+  
+Scores are given on a scale from 0-100.
+  
+**Courses should obtain average scores above 80.**    
+  
+```{r echo=FALSE}
+#scores
+tables <- c("Strongly disagree"= 0, 
+                     "Disagree" = 20,
+                     "Somehow disagree"= 40,
+                     "Somehow agree"= 60,
+                     "Agree" = 80,
+                     "Strongly agree" = 100)
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+  
+Courses should obtain average scores **above 80.**    
+
+## Summary
+
+```{r echo=FALSE, warning=FALSE, fig.width=8, warning=FALSE}
+# Summary table
+    table_summary <- selection[c("TQ_f","TQlect_f","TQmat_f","skills",'relevance',"lev_difficulty")] %>%
+      dplyr::rename("Overall teaching quality" = TQ_f,
+                    "- Teaching quality: Lecturer performance" = TQlect_f,
+                    "- Teaching quality: Course material" = TQmat_f,
+                   "Perceived skill development" = skills,
+                   "Relevance of the topic" = relevance,
+                   "Level of difficulty" = lev_difficulty) %>%
+      mutate_if(is.numeric, round,0) %>%
+      gather(tables) %>% 
+          dplyr::rename("Dimension" = tables,
+                        "Score (0 - 100)" = value) 
+
+# Summary plot
+  plot_summary <- table_summary %>%
+      filter(Dimension!="Level of difficulty") %>%
+      dplyr::rename(Score = "Score (0 - 100)")
+    plot_summary$Score <- as.numeric(plot_summary$Score)
+
+ggplot(plot_summary, aes(x=Dimension, y=Score)) +
+    geom_bar(stat = "identity", fill="#787878")  +
+    coord_flip(ylim = c(0, 100)) +
+    geom_hline(yintercept=80, linetype="dashed") +
+    xlab(NULL) +
+    ylab(NULL) +
+    theme(axis.text.y = element_text(size = 12)) +
+    theme(axis.text.x = element_text(size = 12))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# Table for summary (currently disabled, because the plot shows the summary values good enough)
+    panderOptions("table.style","simple")
+    panderOptions("table.alignment.default","left")
+    panderOptions("table.split.table",Inf)
+    panderOptions("table.split.cells", 30)
+      pander(table_summary)
+```
+
+## Teaching quality
+
+### Lecturer performance
+
+```{r echo=FALSE, warning=FALSE}
+#table for Lecturer performance
+tables <- selection[c("Q_flec1","Q_flec2","Q_flec3","Q_flec4","Q_flec5","Q_flec6",
+                       "Q_flec7","TQlect_f")]
+  tables <- dplyr::rename(tables, 
+        "Item 1" = Q_flec1,
+        "Item 2" = Q_flec2,
+        "Item 3" = Q_flec3,
+        "Item 4" = Q_flec4,
+        "Item 5" = Q_flec5,
+        "Item 6" = Q_flec6,
+        "Item 7" = Q_flec7,
+        "Average" = TQlect_f) %>%
+    round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+
+  panderOptions("table.style","simple")
+  panderOptions("table.alignment.default","left")
+  panderOptions("table.split.table",Inf)
+  panderOptions("table.split.cells", 30)
+    pander(tables)
+```
+
+#### Feedback on the lecturer performance  
+
+```{r echo=FALSE, warning=FALSE}
+# open answers for lecturer performance
+tables <- na.omit(sel_part["OA_flec"])
+      tables <- dplyr::rename(tables, 
+            "-" = OA_flec) %>%
+      gather(tables) 
+      tables <- dplyr::rename(tables,
+                        " " = tables,
+                        "What would you tell the lecturers to improve their performance?" = value) 
+    
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+```
+
+### Quality of the course material
+
+```{r echo=FALSE, warning=FALSE}
+#table for quality of course material
+tables <- selection[c("Q_fmat1","Q_fmat2","TQmat_f")]
+  tables <- dplyr::rename(tables, 
+        "Item 8" = Q_fmat1,
+        "Item 9" = Q_fmat2,
+        "Average" = TQmat_f) %>%
+
+    round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+#### Comments on the course material  
+
+```{r echo=FALSE, warning=FALSE}  
+# open answers for course material
+tables <- na.omit(sel_part["OA_fmat"])
+      tables <- dplyr::rename(tables, 
+            "-" = OA_fmat) %>%
+      gather(tables) 
+      tables <- dplyr::rename(tables,
+                        " " = tables,
+                        "How would you change the course material to improve the quality?" = value) 
+    
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+```
+
+## Perceived skill development
+
+```{r echo=FALSE, warning=FALSE}
+#table for skill development
+tables <- selection[c("Q_skill1","Q_skill2","Q_skill3","skills")]
+  tables <- dplyr::rename(tables, 
+        "Item 10" = Q_skill1,
+        "Item 11" = Q_skill2,
+        "Item 12" = Q_skill3,
+        "Average" = skills) %>%
+    round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+## Relevance of the topic  
+
+```{r echo=FALSE, warning=FALSE}
+#table for relevance
+tables <- selection[c("Q_rel1","Q_rel2","Q_rel3",'relevance')]
+  tables <- dplyr::rename(tables, 
+         "Item 13" = Q_rel1,
+         "Item 14" = Q_rel2,
+         "Item 15" = Q_rel3,
+         "Average" = relevance) %>%
+  round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+  
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+#### Comments on the relevance of the module 
+
+```{r echo=FALSE, warning=FALSE}
+# open answers for relevance
+tables <- na.omit(sel_part["OA_rel"])
+      tables <- dplyr::rename(tables, 
+            "-" = "OA_rel") %>%
+      gather(tables) 
+      tables <- dplyr::rename(tables,
+                        " " = tables,
+                        "Why do you think the topic of the course (or module) might not be relevant"= value) 
+          
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+```
+  
+    
+## Level of difficulty
+
+In general, the participants found the module to be **`r selection$lev_difficulty`**   
+*Index:  1 = "very easy", 2 = "easy", 3 = "somewhat easy", 4 = "somewhat difficult", 5 = "difficult", 6 = "very difficult"* 
+
+```{r echo=FALSE, warning=FALSE}
+#table for level of dificulty scores
+tables <- selection[c("lQ_dif1" ,"lQ_dif2","difficulty")] %>%
+  mutate_if(is.numeric, round,2) %>%
+  dplyr::rename("Item 16" = lQ_dif1,
+                "Item 17" = lQ_dif2,
+                "Average" = difficulty) %>%
+        gather(tables) %>% 
+          dplyr::rename("Evaluated statement" = tables,
+                        "Score (1 - 6)" = value) 
+  
+panderOptions("table.style","simple")
+panderOptions("table.alignment.default","left")
+panderOptions("table.split.table",Inf)
+panderOptions("table.split.cells", 30)
+  pander(tables)
+```
+
+## Satisfaction with the facilities  
+
+```{r echo=FALSE, warning=FALSE}
+#table for satisfaction with the facilities
+tables <- selection[c("Q_ffac1","Q_ffac2","Q_ffac3","Q_ffac4", "facil_f")]
+  tables <- dplyr::rename(tables, 
+        "Item 18" = Q_ffac1,
+        "Item 19" = Q_ffac2,
+        "Item 20" = Q_ffac3,
+        "Item 21" = Q_ffac4,
+        "Average" = facil_f) %>%
+    round %>%
+  gather(tables) 
+  tables <- dplyr::rename(tables,
+                    "Evaluated statement" = tables,
+                    "Score (0 - 100)   " = value) 
+
+if (!is.na(selection$facil_f)) {
+    panderOptions("table.style","simple")
+    panderOptions("table.alignment.default","left")
+    panderOptions("table.split.table",Inf)
+    panderOptions("table.split.cells", 30)
+      pander(tables)
+} else {
+  pander(c( "In this module the satisfaction with facilities has not been evaluated. It will only appear in the last module report of this course and in the course summary report."))
+}
+```
+  
+## Open answers and comments
+
+#### Strengths  
+
+```{r echo=FALSE, warning=FALSE}
+# open answers for overall strengths
+    tables <- na.omit(sel_part[c(as.character("OA_strength"))]) 
+      tables <- dplyr::rename(tables, 
+            "-" = OA_strength) %>%
+      gather(tables) 
+     tables <- dplyr::rename(tables,
+                        " " = tables,
+                        "Please identify what you consider to be the strengths of this course (or module):" =value)
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+ 
+```
+  
+#### Weaknesses  
+
+```{r echo=FALSE, warning=FALSE}  
+# open answers for overall weaknesses
+    tables <- na.omit(sel_part[c(as.character("OA_weakness"))]) 
+      tables <- dplyr::rename(tables, 
+            "-" = OA_weakness) %>%
+    gather(tables)
+    tables <- dplyr::rename(tables,
+                        " " = tables,
+                        "Please identify area(s) where you think the course (or module) could be improved:" =value)
+           
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+```
+  
+
+#### Comments  
+
+```{r echo=FALSE, warning=FALSE}   
+# other comments
+    
+tables <- na.omit(sel_part[(as.character("OA_com"))]) 
+  tables <- dplyr::rename(tables, 
+            "-" = OA_com) %>%
+      gather(tables) 
+      tables <- dplyr::rename(tables,
+                              "-" = tables,
+                        "Do you have any other comments?" = value) 
+    
+          panderOptions("table.style","multiline")
+          panderOptions("table.alignment.default","left")
+            pander(tables)
+```
+  
