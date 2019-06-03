@@ -7,7 +7,7 @@ To test the tool, you can download the excel file containing sample data.
 
 ## How to test the tool with sample data:
 
-- Download the Excel file with the sample data, the R script to retriev and clean the data, the R Markdown report templates + the stylesheet for Word and the two shiny dashboard files
+- Download the Excel file with the sample data ("SampleData.xlsx"), the R script to retriev and clean the data ("data.R"), the R Markdown report templates ("Report_Module.Rmd", "Report-Course[summary-of-modules]", "Report-Yearly.Rmd") + the stylesheet for Word ("Style_of_report.docx") and the two shiny dashboard files ("server.R", "ui.R")
 
 - Save all files in one folder on your computer
 
